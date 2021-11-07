@@ -1,0 +1,15 @@
+# OS and archives
+*.gz
+*.bz2
+*.tar
+*.tgz
+*.zip
+.DS_Store
+desktop.ini
+
+.idea
+.nbproject
+
+# Node specific ignores
+bower_components
+node_modules
