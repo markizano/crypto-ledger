@@ -20,9 +20,10 @@ the timestamp it took place.
 ### View/Design
 I can see my current wealth as well across all transactions.
 I can see graphs of my portfolio and what is allocated where.
-When I make trades or move crypto from wallet to wallet or exchange ERC20/BEP20 tokens, they are automatically
-detected and the interface updates with the latest info, polling every few seconds/minutes to ensure
-records are kept up to date.
+
+When I make trades or move crypto from wallet to wallet or exchange ERC20/BEP20/&gt;insert-blockchain-here&lt;
+tokens, they are automatically detected and the interface updates with the latest info, polling every
+few seconds/minutes to ensure records are kept up to date.
 
 ## Security
 This interface will run local to the machine of the user that wants to keep track of this information.
@@ -32,8 +33,13 @@ Pricing, transaction information and such may be queried from other configurable
 ## Integrations
 To Developers: You can integrate with exchanges and such to collect information from them. I just don't
 want this interface being locked into a single entity for all information.
+
 Ideally, with each integration, it's added into an averaging mechanism that averages/normalizes the
 price among all the configurable exchanges (for price information) and summarize an average of said
 data.
 
+Example: I build an integration to Coinmarketcap. Someone else builds an integration to Coingecko.
+Some else further creates an integration into Binance. We are now getting price information across
+3 platforms. It would be a nice feature to be able to take the average of all their prices instead
+of being locked into a single entity for pricing data.
 
