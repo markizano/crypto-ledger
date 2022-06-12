@@ -13,3 +13,4 @@ desktop.ini
 # Node specific ignores
 bower_components
 node_modules
+package-lock.json
