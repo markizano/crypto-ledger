@@ -2,64 +2,75 @@
 interface Transaction {
 
   readonly datetime: Date;
-  readonly label: string;
-           amount: Number;
+           amount: number;
   readonly currency: string;
-           usd: Number;
-  readonly source: string;
-  readonly destination: string;
+           usd: number;
 
   getDate(): Date,
-  getLabel(): string;
-  getAmount(): Number;
+  getAmount(): number;
 }
 
-class BTC_Transaction implements Transaction {
 
+enum BTC_Category {
+  SEND = "send",
+  RECEIVE = "receive"
+}
+
+export class BTC_Transaction implements Transaction {
+
+  readonly txid: string;
   readonly datetime: Date;
-  readonly label: string;
-           amount: Number;
+  readonly address: string;
+  readonly category: BTC_Category;
+           label: string;
+  readonly amount: number;
   readonly currency: string;
-           usd: Number;
-  readonly source: string;
-  readonly destination: string;
+           usd: number;
+  readonly blockhash: string;
+  readonly blockheight: number;
+  readonly blockindex: number;
 
   constructor(
-    datetime: Date,
+    txid: string,
+    address: string,
+    category: BTC_Category,
     label: string,
-    amount: Number,
+    amount: number,
     currency: string,
-    usd: Number,
-    source: string,
-    destination: string) {
-        this.datetime = datetime;
+    usd: number,
+    blockhash: string,
+    blockheight: number,
+    blockindex: number,
+    blocktime: number
+  ) {
+        this.txid = txid;
+        this.datetime = new Date(blocktime);
+        this.address = address;
+        this.category = category;
         this.label = label;
         this.amount = amount;
         this.currency = currency;
         this.usd = usd;
-        this.source = source;
-        this.destination = destination;
+        this.blockhash = blockhash;
+        this.blockheight = blockheight;
+        this.blockindex = blockindex;
   }
 
   getDate(): Date {
     return this.datetime;
   }
 
-  getLabel(): string {
-    return this.label;
-  }
-
-  getAmount(): Number {
+  getAmount(): number {
     return this.amount;
   }
 }
 
-class ETH_Transaction implements Transaction {
+export class ETH_Transaction implements Transaction {
   readonly datetime: Date;
   readonly label: string;
-           amount: Number;
+           amount: number;
   readonly currency: string;
-           usd: Number;
+           usd: number;
   readonly contract: string;
   readonly source: string;
   readonly destination: string;
@@ -67,9 +78,9 @@ class ETH_Transaction implements Transaction {
   constructor(
     datetime: Date,
     label: string,
-    amount: Number,
+    amount: number,
     currency: string,
-    usd: Number,
+    usd: number,
     contract: string,
     source: string,
     destination: string) {
@@ -91,7 +102,7 @@ class ETH_Transaction implements Transaction {
     return this.label;
   }
 
-  getAmount(): Number {
+  getAmount(): number {
     return this.amount;
   }
 }
