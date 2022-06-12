@@ -18,4 +18,4 @@ package-lock.json
 # Project-specific ignore
 config/*.yml
 config/*.yaml
-*.js
+lib/**/*.js
