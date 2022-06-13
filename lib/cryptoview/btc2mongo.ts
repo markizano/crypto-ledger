@@ -35,6 +35,7 @@ async function getMongoConnection(config: CryptoViewConfig) {
   return await mongo.connect();
 }
 
+
 export async function main() {
   const config = await loadConfig('./config/config.yml');
   const btcTxns = await getBTCTxns(config);
@@ -63,25 +64,30 @@ export async function main() {
           dbTransactions.push( btcTxn );
       });
   }
+
   if ( txnCount != btcTxns.length ) {
     console.log(`[ \x1b[1;33mALERT\x1b[0m ]: DB lacking txns from Blockchain! Blockchain has ${btcTxns.length}, DB has ${txnCount}`);
-    btcTxns.forEach( async (txn: BTC_Transaction) => {
-        let hasTransaction = dbTransactions.filter((x: BTC_Transaction) => x.txid == txn.txid);
-        console.log(`hasTransaction(${hasTransaction.length})=`, hasTransaction);
-        if ( !hasTransaction.length ) {
-            console.log('[ \x1b[36mDEBUG\x1b[0m ]: Adding txn: ' + JSON.stringify(txn, null, 2));
-            await transactions.insertOne(txn).then((res) => {
-                console.log('Inserted: ' + res);
-            }).catch((err) => console.log('[\x1b[31mERROR\x1b[0m]: insert() failed: ' + err));
-        }
-      });
+    for ( var i in btcTxns ) {
+      var txn = btcTxns[i];
+      let hasTransaction = dbTransactions.filter((x: BTC_Transaction) => x.txid == txn.txid);
+      //console.log(`hasTransaction(${hasTransaction.length})=`, hasTransaction);
+      if ( !hasTransaction.length ) {
+          //console.debug('[ \x1b[36mDEBUG\x1b[0m ]: Adding txn: ' + JSON.stringify(txn, null, 2));
+          var insertResult = await db.collection('transactions').insertOne(txn);
+          console.debug(`Inserted: ${JSON.stringify(insertResult, null, 2)}`);
+      }
+    }
     return {
       status: 200,
       response: 'OK',
-      message: 'btc2mongo();'
+      message: 'attempted insert();'
     }
   }
-
+  return {
+    status: 200,
+    response: 'OK',
+    message: 'allGud();'
+  }
 }
 
 export function tidyUp() {
