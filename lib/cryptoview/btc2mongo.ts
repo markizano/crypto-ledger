@@ -1,6 +1,6 @@
 
 const Bitcoin = require('bitcoin-core');
-import { Document, MongoClient } from 'mongodb';
+import { Collection, Document, MongoClient } from 'mongodb';
 import { BTC_Transaction } from './transactions';
 import { loadConfig, CryptoViewConfig } from './utils';
 import { log } from './logger';
@@ -25,6 +25,34 @@ async function getMongoConnection(config: CryptoViewConfig) {
   return await mongo.connect();
 }
 
+async function fetchDbTransactions(transactions: Collection): Promise<Array<BTC_Transaction>> {
+  var dbTransactions = [] as BTC_Transaction[];
+  (await transactions.find({}, {}).sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
+    if (!x.label) x.label = "undefined";
+    x.currency = "BTC";
+    x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
+    dbTransactions.push( new BTC_Transaction({...x}) );
+  });
+  return dbTransactions;
+}
+
+async function attemptInsert(btcTxns: BTC_Transaction[], dbTransactions: BTC_Transaction[], transactions: Collection) {
+  for ( var i in btcTxns ) {
+    var txn = btcTxns[i];
+    let hasTransaction = dbTransactions.filter((x: BTC_Transaction) => x.txid == txn.txid);
+    if ( !hasTransaction.length ) {
+        await transactions.insertOne(txn);
+        log.warn(module.id, '[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
+        log.info(module.id, `  Address ${txn.address} has ${txn.category} ${txn.amount} of ${txn.currency} on ${txn.blocktime}.`);
+    }
+  }
+  return {
+    status: 200,
+    response: 'OK',
+    message: 'attempted insert();'
+  }
+}
+
 export async function main() {
   log.debug(module.id, 'main();');
   const config = await loadConfig('./config/config.yml');
@@ -35,33 +63,10 @@ export async function main() {
   const transactions = db.collection('transactions');
 
   const txnCount = await transactions.countDocuments();
-  var dbTransactions = [] as BTC_Transaction[];
-  if ( txnCount ) {
-      (await transactions.find({}, {}).sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
-        if (!x.label) x.label = "undefined";
-        x.currency = "BTC";
-        x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
-        let btcTxn = new BTC_Transaction({...x});
-        dbTransactions.push( btcTxn );
-      });
-  }
-
-  if ( txnCount != btcTxns.length ) {
+  if ( txnCount && txnCount != btcTxns.length ) {
     log.warn(module.id, `[ \x1b[1;33mALERT\x1b[0m ]: DB lacking txns from Blockchain! Blockchain has ${btcTxns.length}, DB has ${txnCount}`);
-    for ( var i in btcTxns ) {
-      var txn = btcTxns[i];
-      let hasTransaction = dbTransactions.filter((x: BTC_Transaction) => x.txid == txn.txid);
-      if ( !hasTransaction.length ) {
-          await db.collection('transactions').insertOne(txn);
-          console.log('[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
-          console.log(`  Address ${txn.address} has ${txn.category} ${txn.amount} of ${txn.currency} on ${txn.blocktime}.`);
-      }
-    }
-    return {
-      status: 200,
-      response: 'OK',
-      message: 'attempted insert();'
-    }
+    const dbTransactions = await fetchDbTransactions(transactions);
+    return await attemptInsert(btcTxns, dbTransactions, transactions);
   }
   return {
     status: 200,
