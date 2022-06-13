@@ -44,7 +44,7 @@ export class BTC_Transaction implements Transaction {
     blocktime: number
   ) {
         this.txid = txid;
-        this.datetime = new Date(blocktime);
+        this.datetime = new Date(blocktime * 1000);
         this.address = address;
         this.category = category;
         this.label = label;
@@ -96,10 +96,6 @@ export class ETH_Transaction implements Transaction {
 
   getDate(): Date {
     return this.datetime;
-  }
-
-  getLabel(): string {
-    return this.label;
   }
 
   getAmount(): number {
