@@ -74,7 +74,9 @@ export async function main() {
       if ( !hasTransaction.length ) {
           //console.debug('[ \x1b[36mDEBUG\x1b[0m ]: Adding txn: ' + JSON.stringify(txn, null, 2));
           var insertResult = await db.collection('transactions').insertOne(txn);
-          console.debug(`Inserted: ${JSON.stringify(insertResult, null, 2)}`);
+          //console.debug(`Inserted: ${JSON.stringify(insertResult, null, 2)}`);
+          console.log('[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
+          console.log(`  Address ${txn.address} has ${txn.category} ${txn.amount} of ${txn.currency} on ${txn.datetime}.`);
       }
     }
     return {
