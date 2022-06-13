@@ -3,40 +3,30 @@ const Bitcoin = require('bitcoin-core');
 import { Document, MongoClient } from 'mongodb';
 import { BTC_Transaction } from './transactions';
 import { loadConfig, CryptoViewConfig } from './utils';
+import { log } from './logger';
 
 var mongo = undefined as unknown as MongoClient;
 
 async function getBTCTxns(config: any): Promise<Array<BTC_Transaction>> {
     const btcClient = new Bitcoin(config.bitcoin);
     const transactions = [] as BTC_Transaction[];
+    log.debug(module.id, 'btc2mongo.getBTCTxns();');
     (await btcClient.listTransactions()).forEach( (txn: any) => {
-        //console.log('Transaction: ', txn)
-        transactions.push( new BTC_Transaction(
-            txn.txid,
-            txn.address,
-            txn.category,
-            txn.label || "undefined",
-            txn.amount,
-            "BTC",
-            0, // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
-            txn.blockhash,
-            txn.blockheight,
-            txn.blockindex,
-            txn.blocktime
-        ) );
+      if (!txn.label) txn.label = "undefined";
+      txn.currency = "BTC";
+      txn.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
+      transactions.push( new BTC_Transaction({...txn}) );
     });
-    //console.log(JSON.stringify(transactions, null, 2));
     return transactions;
 }
 
 async function getMongoConnection(config: CryptoViewConfig) {
-  const MONGO_URL = `mongodb://${config.mongodb.host}/${config.mongodb.dbname}`;
-  mongo = new MongoClient(MONGO_URL);
+  mongo = new MongoClient( config.mongodb.getUrl() );
   return await mongo.connect();
 }
 
-
 export async function main() {
+  log.debug(module.id, 'main();');
   const config = await loadConfig('./config/config.yml');
   const btcTxns = await getBTCTxns(config);
   await getMongoConnection(config);
@@ -48,35 +38,23 @@ export async function main() {
   var dbTransactions = [] as BTC_Transaction[];
   if ( txnCount ) {
       (await transactions.find({}, {}).sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
-          let btcTxn = new BTC_Transaction(
-            x.txid,
-            x.address,
-            x.category,
-            x.label || "undefined",
-            x.amount,
-            "BTC",
-            0,
-            x.blockhash,
-            x.blockheight,
-            x.blockindex,
-            x.blocktime
-          );
-          dbTransactions.push( btcTxn );
+        if (!x.label) x.label = "undefined";
+        x.currency = "BTC";
+        x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
+        let btcTxn = new BTC_Transaction({...x});
+        dbTransactions.push( btcTxn );
       });
   }
 
   if ( txnCount != btcTxns.length ) {
-    console.log(`[ \x1b[1;33mALERT\x1b[0m ]: DB lacking txns from Blockchain! Blockchain has ${btcTxns.length}, DB has ${txnCount}`);
+    log.warn(module.id, `[ \x1b[1;33mALERT\x1b[0m ]: DB lacking txns from Blockchain! Blockchain has ${btcTxns.length}, DB has ${txnCount}`);
     for ( var i in btcTxns ) {
       var txn = btcTxns[i];
       let hasTransaction = dbTransactions.filter((x: BTC_Transaction) => x.txid == txn.txid);
-      //console.log(`hasTransaction(${hasTransaction.length})=`, hasTransaction);
       if ( !hasTransaction.length ) {
-          //console.debug('[ \x1b[36mDEBUG\x1b[0m ]: Adding txn: ' + JSON.stringify(txn, null, 2));
-          var insertResult = await db.collection('transactions').insertOne(txn);
-          //console.debug(`Inserted: ${JSON.stringify(insertResult, null, 2)}`);
+          await db.collection('transactions').insertOne(txn);
           console.log('[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
-          console.log(`  Address ${txn.address} has ${txn.category} ${txn.amount} of ${txn.currency} on ${txn.datetime}.`);
+          console.log(`  Address ${txn.address} has ${txn.category} ${txn.amount} of ${txn.currency} on ${txn.blocktime}.`);
       }
     }
     return {
@@ -94,7 +72,7 @@ export async function main() {
 
 export function tidyUp() {
   mongo.close();
-  console.log('Complete!');
+  log.info(module.id, 'Complete!');
 }
 
 module.exports = { main, tidyUp };

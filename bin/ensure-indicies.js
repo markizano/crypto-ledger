@@ -31,7 +31,7 @@ async function ensureIndicies() {
       blocktime: 1
     }, {
       background: 1,
-      name: 'transactions_datetime'
+      name: 'transactions_blocktime'
     });
     console.log('db.transactions: ' + txnIndex);
     result.push('transactions.' + txnIndex);

@@ -1,13 +1,14 @@
 
 const load = require('js-yaml').load;
 const readFile = require('fs/promises').readFile;
+const log = require('./logger').log;
 
 export function debugPass(value: any): void {
-  console.log('[ \x1b[32mPass\x1b[0m ]: ' + JSON.stringify( value ) );
+  log.debug(module.id, '[ \x1b[32mPass\x1b[0m ]: ' + JSON.stringify( value ) );
 }
   
 export function debugFail(e: Error): void {
-  console.log('[ \x1b[1;31mException\x1b[0m ]: ' + e );
+  log.error(module.id, '[ \x1b[1;31mException\x1b[0m ]: ' + e );
 }
 
 class MongoDbConfig {

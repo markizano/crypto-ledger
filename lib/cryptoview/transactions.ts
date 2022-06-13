@@ -1,7 +1,7 @@
 
-interface Transaction {
+export interface Transaction {
 
-  readonly datetime: Date;
+  readonly blocktime: Date;
            amount: number;
   readonly currency: string;
            usd: number;
@@ -12,6 +12,7 @@ interface Transaction {
 
 
 enum BTC_Category {
+  undefined = "undefined",
   SEND = "send",
   RECEIVE = "receive"
 }
@@ -19,45 +20,47 @@ enum BTC_Category {
 export class BTC_Transaction implements Transaction {
 
   readonly txid: string;
-  readonly datetime: Date;
   readonly address: string;
   readonly category: BTC_Category;
            label: string;
   readonly amount: number;
   readonly currency: string;
            usd: number;
+  readonly blocktime: Date;
   readonly blockhash: string;
   readonly blockheight: number;
   readonly blockindex: number;
 
-  constructor(
-    txid: string,
-    address: string,
-    category: BTC_Category,
-    label: string,
-    amount: number,
-    currency: string,
-    usd: number,
-    blockhash: string,
-    blockheight: number,
-    blockindex: number,
-    blocktime: number
-  ) {
-        this.txid = txid;
-        this.datetime = new Date(blocktime * 1000);
-        this.address = address;
-        this.category = category;
-        this.label = label;
-        this.amount = amount;
-        this.currency = currency;
-        this.usd = usd;
-        this.blockhash = blockhash;
-        this.blockheight = blockheight;
-        this.blockindex = blockindex;
+  constructor(btc: any) {
+    this.txid = btc.hasOwnProperty('txid')? btc.txid: '';
+    this.address = btc.hasOwnProperty('address')? btc.address: '';
+    if ( btc.hasOwnProperty('category') ) {
+      switch(btc.category) {
+        case BTC_Category.SEND:
+          this.category = BTC_Category.SEND;
+          break;
+        case BTC_Category.RECEIVE:
+          this.category = BTC_Category.RECEIVE;
+          break;
+        default:
+          this.category = BTC_Category.undefined;
+      }
+    } else {
+      this.category = BTC_Category.undefined;
+    }
+
+    this.label = btc.hasOwnProperty('label')? btc.label: '';
+    this.amount = btc.hasOwnProperty('amount')? btc.amount: 0;
+    this.currency = btc.hasOwnProperty('currency')? btc.currency: '';
+    this.usd = btc.hasOwnProperty('usd')? btc.usd: '';
+    this.blocktime = btc.hasOwnProperty('blocktime')? new Date(btc.blocktime * 1000): new Date();
+    this.blockhash = btc.hasOwnProperty('blockhash')? btc.blockhash: '';
+    this.blockheight = btc.hasOwnProperty('blockheight')? btc.blockheight: 0;
+    this.blockindex = btc.hasOwnProperty('blockindex')? btc.blockindex: 0;
   }
 
   getDate(): Date {
-    return this.datetime;
+    return this.blocktime;
   }
 
   getAmount(): number {
@@ -66,7 +69,7 @@ export class BTC_Transaction implements Transaction {
 }
 
 export class ETH_Transaction implements Transaction {
-  readonly datetime: Date;
+  readonly blocktime: Date;
   readonly label: string;
            amount: number;
   readonly currency: string;
@@ -84,7 +87,7 @@ export class ETH_Transaction implements Transaction {
     contract: string,
     source: string,
     destination: string) {
-      this.datetime = datetime;
+      this.blocktime = datetime;
       this.label = label;
       this.amount = amount;
       this.currency = currency;
@@ -95,7 +98,7 @@ export class ETH_Transaction implements Transaction {
 }
 
   getDate(): Date {
-    return this.datetime;
+    return this.blocktime;
   }
 
   getAmount(): number {
