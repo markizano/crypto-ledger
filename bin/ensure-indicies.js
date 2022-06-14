@@ -4,7 +4,7 @@ const utils = require('../lib/cryptoview/utils');
 const log = require('../lib/cryptoview/logger').log;
 
 const mongodb = require('mongodb');
-const MONGO_URL = 'mongodb://jiren.home.asthralios.net:27017/crypto-ledger';
+const MONGO_URL = process.env.MONGO_URL;
 const MONGO_DBNAME = 'crypto-ledger';
 const client = new mongodb.MongoClient(MONGO_URL);
 
