@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const utils = require('../lib/cryptoview/utils');
+const log = require('../lib/cryptoview/logger').log;
 
 const mongodb = require('mongodb');
 const MONGO_URL = 'mongodb://jiren.home.asthralios.net:27017/crypto-ledger';
@@ -13,7 +14,7 @@ async function ensureIndicies() {
   const result = [];
 
   let debugCollections = await db.listCollections().toArray();
-  console.log('Collections: ' + JSON.stringify(debugCollections, null, 2));
+  log.info(module.path, 'Collections: ' + JSON.stringify(debugCollections, null, 2));
 
   {
     const wallets = db.collection('wallets');
