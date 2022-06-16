@@ -4,8 +4,8 @@ const utils = require('../lib/cryptoview/utils');
 const log = require('../lib/cryptoview/logger').log;
 
 const mongodb = require('mongodb');
-const MONGO_URL = process.env.MONGO_URL;
-const MONGO_DBNAME = 'crypto-ledger';
+const MONGO_URL = utils.getEnv('MONGO_URL', 'mongo://localhost:27017/');
+const MONGO_DBNAME = utils.getEnv('MONGO_DBNAME', 'crypto-ledger');
 const client = new mongodb.MongoClient(MONGO_URL);
 
 async function ensureIndicies() {

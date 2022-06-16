@@ -2,11 +2,17 @@
 const BitcoinClient = require('bitcoin-core');
 import { log } from '../logger';
 
-export class BitcoinConfig {
+enum Category {
+  undefined = "undefined",
+  SEND = "send",
+  RECEIVE = "receive"
+}
+
+export class BitcoinRpcClientConfig {
   readonly username = '' as string;
   readonly password = '' as string;
   readonly port = '8333' as string;
-  readonly wallet = '' as string;
+  readonly wallet = 'default' as string;
 
   constructor(cfg: any) {
     this.username = cfg.hasOwnProperty('username')? cfg.username: '';
@@ -16,51 +22,7 @@ export class BitcoinConfig {
   }
 }
   
-/**
- * WalletAddress: Helper class to class BitcoinAdapter.
- * This will provide some structure to the results that come from Bitcoin.listReceivedByAddress().
- */  
-class WalletAddress {
-  readonly address = '' as string;
-  readonly amount = 0 as number;
-  readonly label = '' as string;
-  readonly txids = [] as string[];
-  txns = [] as TransactionDetail[];
-
-  constructor(cfg: any) {
-    if ( cfg.address ) this.address = cfg.address;
-    if ( cfg.amount ) this.amount = cfg.amount;
-    if ( cfg.label ) this.label = cfg.label;
-    if ( cfg.txids ) this.txids = cfg.txids;
-  }
-
-  /**
-   * Transaction id 2 transaction. If you give me the Bitcoin client, I will fetch and attach
-   * the full transaction object to this local list of transaction hashes.
-   * @param client {Bitcoin} The bitcoin-core RPC client to collect the details.
-   * @returns null
-   */
-  async txid2txn(client: InstanceType<typeof BitcoinClient>): Promise<void> {
-    log.verbose(module.id, 'Collecting transactions related to the wallet.')
-    if ( this.txns.length ) {
-      this.txns = [];
-    }
-    for ( var t in this.txids ) {
-      var txid = this.txids[t];
-      log.debug(module.id, `client.getTransaction(${txid}, true, true)`)
-      const txn = await client.getTransaction(txid, true, true);
-      this.txns.push(txn);
-    }
-  }
-}
-
-enum Category {
-  undefined = "undefined",
-  SEND = "send",
-  RECEIVE = "receive"
-}
-
-class _TransactionDetail_Details {
+class TransactionDetailsStruct {
   readonly address = '' as string;
   readonly category = Category.undefined as Category;
   readonly amount = 0 as number;
@@ -85,7 +47,7 @@ export class TransactionDetail {
   readonly blockindex = 0 as number;
   readonly blocktime = 0 as number;
   readonly txid = '' as string;
-  readonly details = [] as _TransactionDetail_Details[];
+  readonly details = [] as TransactionDetailsStruct[];
   readonly hex = '' as string;
   readonly decoded = {} as Object;
 
@@ -98,9 +60,58 @@ export class TransactionDetail {
     this.blockindex = txn.hasOwnProperty('blockindex')? txn.blockindex: 0;
     this.blocktime = txn.hasOwnProperty('blocktime')? txn.blocktime: 0;
     this.txid = txn.hasOwnProperty('txid')? txn.txid: '';
-    this.details = txn.hasOwnProperty('details')? txn.details: [];
+    if ( txn.hasOwnProperty('details') && txn.details instanceof Array ) {
+      for ( var d in txn.details ) {
+        var detail = txn.details[d] as TransactionDetailsStruct;
+        this.details.push( new TransactionDetailsStruct(
+          detail.address,
+          detail.category,
+          detail.amount,
+          detail.label,
+          detail.vout
+        ) );
+      }
+    } else {
+      this.details = [];
+    }
     this.hex = txn.hasOwnProperty('hex')? txn.hex: '';
     this.decoded = txn.hasOwnProperty('decoded')? txn.decoded: {};
+  }
+}
+
+/**
+ * WalletAddress: Helper class to class BitcoinAdapter.
+ * This will provide some structure to the results that come from Bitcoin.listReceivedByAddress().
+ */
+export class WalletAddress {
+  readonly address = '' as string;
+  readonly amount = 0 as number;
+  readonly label = '' as string;
+  readonly txids = [] as string[];
+
+  constructor(cfg: any) {
+    if ( cfg.address ) this.address = cfg.address;
+    if ( cfg.amount ) this.amount = cfg.amount;
+    if ( cfg.label ) this.label = cfg.label;
+    if ( cfg.txids ) this.txids = cfg.txids;
+  }
+
+  /**
+   * Transaction id 2 transaction. If you give me the Bitcoin client, I will fetch and attach
+   * the full transaction object to this local list of transaction hashes.
+   * @param {BitcoinClient} {client} The bitcoin-core RPC client to collect the details.
+   * @returns {TransactionDetail[]} Array of Transactions
+   */
+  async txid2txn(client: InstanceType<typeof BitcoinClient>): Promise<Array<TransactionDetail>> {
+    log.verbose(module.id, 'Collecting transactions related to the wallet.')
+    const result = [] as TransactionDetail[];
+    for ( var t in this.txids ) {
+      var txid = this.txids[t];
+      //log.debug(module.id, `client.getTransaction(${txid}, true, true)`)
+      const txn = await client.getTransaction(txid, true, true);
+      result.push(txn);
+    }
+    return result;
   }
 }
 
@@ -110,12 +121,12 @@ export class TransactionDetail {
  * interfaces with it, I can do that to avoid stressing the library too much.
  */
 export class BitcoinAdapter {
-  readonly config = undefined as unknown as BitcoinConfig;
+  readonly config = undefined as unknown as BitcoinRpcClientConfig;
   client = undefined as unknown as InstanceType<typeof BitcoinClient>;
   private results = {} as any;
 
-  constructor(cfg: BitcoinConfig) {
-    this.config = new BitcoinConfig(cfg);
+  constructor(cfg: BitcoinRpcClientConfig) {
+    this.config = new BitcoinRpcClientConfig(cfg);
     this.client = new BitcoinClient(this.config);
   }
 
@@ -132,11 +143,21 @@ export class BitcoinAdapter {
     this.results['myWallets'] = [] as WalletAddress[];
     (await this.client.listReceivedByAddress(0, true, true)).forEach( (address: any) => {
       var walletAddress = new WalletAddress(address);
-      // Performance warning: This might get expensive with big loads of data.
-      walletAddress.txid2txn(this.client);
       this.results['myWallets'].push( walletAddress );
     });
     log.info(module.id, 'cache-miss! Returning myWallets from current execution.');
     return this.results['myWallets'];
+  }
+
+  async getMyTransactions(): Promise<Array<TransactionDetail>> {
+    log.verbose(module.id,'getMyTransactions()');
+    const result = [] as TransactionDetail[];
+    const wallets = await this.getMyWallets();
+    for ( var w in wallets ) {
+      var wallet = wallets[w];
+      var txns = await wallet.txid2txn(this.client);
+      result.push(...txns)
+    }
+    return result;
   }
 }

@@ -2,7 +2,7 @@
 import { load } from 'js-yaml';
 import { readFile } from 'fs/promises';
 import { log } from './logger';
-import { BitcoinConfig } from './adapter/btc';
+import { BitcoinRpcClientConfig } from './adapter/btc';
 import { MongoDbConfig } from './adapter/mongo';
 
 export function getEnv(name: string, defaltam: string = ''): string {
@@ -22,12 +22,12 @@ export function debugFail(e: Error): void {
 }
 
 export class CryptoViewConfig {
-  readonly bitcoin = {} as BitcoinConfig;
+  readonly bitcoin = {} as BitcoinRpcClientConfig;
   readonly mongodb = {} as MongoDbConfig;
 
   constructor(cfg: any) {
     if ( Object.prototype.hasOwnProperty.call(cfg, 'bitcoin') && cfg.bitcoin ) {
-      this.bitcoin = new BitcoinConfig(cfg.bitcoin);
+      this.bitcoin = new BitcoinRpcClientConfig(cfg.bitcoin);
     }
     if ( Object.prototype.hasOwnProperty.call(cfg, 'mongodb') && cfg.mongodb ) {
       this.mongodb = new MongoDbConfig(cfg.mongodb);

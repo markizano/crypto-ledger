@@ -1,7 +1,7 @@
 
-import { MongoClient, Document, WithId, Db, InsertManyResult } from "mongodb";
+import { MongoClient, Document, Db, InsertManyResult } from "mongodb";
 import { log } from "../logger";
-import { TransactionDetail } from './btc';
+import { WalletAddress, TransactionDetail } from './btc';
 
 export class MongoDbConfig {
   readonly username = '' as string;
@@ -33,7 +33,7 @@ export class MongoDbConfig {
   }
 }
 
-export class MongoAdapter {
+export class MongoModel {
   private mongo = undefined as unknown as MongoClient;
   private config = undefined as unknown as MongoDbConfig;
   private db = undefined as unknown as Db;
@@ -53,27 +53,47 @@ export class MongoAdapter {
     this.mongo.close();
   }
 
-  // This feels wrong. Not an adapter thing - this is a model function.
-  // I should not be calling BTC stuff here.
-  // @TODO: Fix this via putting in a model somewhere.
-  async fetchDbTransactions(): Promise<Array<TransactionDetail>> {
+  async fetchDbTransactions(idsOnly: boolean = false): Promise<Array<TransactionDetail|string>> {
     log.verbose(module.id,'fetchDbTransactions();')
     const transactions = this.db.collection('transactions');
     var dbTransactions = [] as TransactionDetail[];
-    (await transactions.find({}, {}).sort({blocktime: 1}).toArray()).forEach( (x: WithId<Document>) => {
+    (await transactions.find().project(idsOnly? { txid: 1 }: {}).sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
       if (!x.label) x.label = "undefined";
       x.currency = "BTC";
       x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
-      dbTransactions.push( new TransactionDetail({...x}) );
+      if ( idsOnly ) {
+        dbTransactions.push( x.txid );
+      } else {
+        dbTransactions.push( new TransactionDetail({...x}) );
+      }
     });
+    log.debug(module.id, `Got ${dbTransactions.length} transactions from the DB!`);
     return dbTransactions;
   }
 
+  async fetchWallets(addressOnly: boolean = false): Promise<Array<WalletAddress|string>> {
+    log.verbose(module.id,'fetchWallets();')
+    const wallets = this.db.collection('wallets');
+    const dbWallets = [] as WalletAddress[];
+    (await wallets.find().project( addressOnly? {address: 1}: {} ).toArray()).forEach( (x: Document) => {
+      if ( addressOnly ) {
+        dbWallets.push(x.address);
+      }
+      dbWallets.push( new WalletAddress({...x}) );
+    })
+    log.debug(module.id, `Found ${dbWallets.length} wallets today!  :O`);
+    return dbWallets;
+  }
+
   async addTransactions(btcTxns: TransactionDetail[]): Promise<InsertManyResult<Document>> {
-    log.verbose(`addTransactions(${btcTxns})`);
+    log.verbose(module.id, `addTransactions(${btcTxns})`);
     return await this.db.collection('transaction').insertMany(btcTxns);
   }
 
+  async addWallets(btcWallets: WalletAddress[]): Promise<InsertManyResult<Document>> {
+    log.verbose(module.id, `addWallets(${btcWallets})`);
+    return await this.db.collection('wallets').insertMany(btcWallets);
+  }
 }
 
 
