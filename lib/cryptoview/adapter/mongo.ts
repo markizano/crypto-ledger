@@ -1,7 +1,7 @@
 
 import { MongoClient, Document, Db, InsertManyResult } from "mongodb";
-import { log } from "../logger";
-import { WalletAddress, TransactionDetail } from './btc';
+import { log } from "cryptoview/logger";
+import { WalletAddress, TransactionDetail } from 'cryptoview/adapter/btc';
 const __name__ = 'cryptoview.mongo';
 
 export class MongoDbConfig {

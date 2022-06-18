@@ -1,6 +1,6 @@
 
 const BitcoinClient = require('bitcoin-core');
-import { log } from '../logger';
+import { log } from 'cryptoview/logger';
 const __name__ = 'cryptoview.adapter.btc';
 
 enum Category {

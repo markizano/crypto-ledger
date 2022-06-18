@@ -1,8 +1,8 @@
 
-import { log } from './logger';
-import { getEnv, loadConfig } from './utils';
-import { BitcoinAdapter, TransactionDetail, WalletAddress } from './adapter/btc';
-import { MongoModel } from './adapter/mongo';
+import { log } from 'cryptoview/logger';
+import { getEnv, loadConfig } from 'cryptoview/utils';
+import { BitcoinAdapter, TransactionDetail, WalletAddress } from 'cryptoview/adapter/btc';
+import { MongoModel } from 'cryptoview/adapter/mongo';
 const __name__ = 'cryptoview.btc2mongo';
 
 let mdb = undefined as unknown as MongoModel;

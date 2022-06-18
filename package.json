@@ -5,8 +5,8 @@
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "window": "node bin/main.js",
-    "server": "node bin/server.js"
+    "window": "tsc && NODE_PATH=./build node bin/main.js",
+    "server": "tsc && NODE_PATH=./build node bin/server.js"
   },
   "author": "",
   "license": "ISC",

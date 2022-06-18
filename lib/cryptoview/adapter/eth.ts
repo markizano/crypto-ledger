@@ -1,7 +1,7 @@
 
 import Web3 from 'web3';
-import { getEnv, loadConfig } from '../utils';
-import { log } from '../logger';
+import { getEnv, loadConfig } from 'cryptoview/utils';
+import { log } from 'cryptoview/logger';
 const __name__ = 'cryptoview.adapter.eth';
 
 class InfuraStruct {

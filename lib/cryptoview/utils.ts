@@ -1,10 +1,10 @@
 
 import { load } from 'js-yaml';
 import { readFile } from 'fs/promises';
-import { log } from './logger';
-import { BitcoinRpcClientConfig } from './adapter/btc';
-import { MongoDbConfig } from './adapter/mongo';
-import { EthRpcConfig } from './adapter/eth';
+import { log } from 'cryptoview/logger';
+import { BitcoinRpcClientConfig } from 'cryptoview/adapter/btc';
+import { MongoDbConfig } from 'cryptoview/adapter/mongo';
+import { EthRpcConfig } from 'cryptoview/adapter/eth';
 const __name__ = 'cryptoview.utils';
 
 export function getEnv(name: string, defaltam: string = ''): string {
@@ -42,7 +42,9 @@ export class CryptoViewConfig {
     if ( Object.prototype.hasOwnProperty.call(cfg, 'mongodb') && cfg.mongodb ) {
       this.mongodb = new MongoDbConfig(cfg.mongodb);
     }
-    this.ethereum = new EthRpcConfig( cfg.ethereum );
+    if ( Object.prototype.hasOwnProperty.call(cfg, 'etherem') && cfg.ethereum ) {
+      this.ethereum = new EthRpcConfig( cfg.ethereum );
+    }
   }
 }
 
