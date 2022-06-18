@@ -10,7 +10,7 @@ let mdb = undefined as unknown as MongoModel;
 async function syncWallets(btc: BitcoinAdapter): Promise<Array<WalletAddress>> {
   const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
   log.debug(logPrefix);
-  const dbWalletAddrs = await mdb.fetchWallets(true);
+  const dbWalletAddrs = await mdb.fetchWalletIds();
   const toInsertRecords = [] as WalletAddress[];
   const btcWallets = await btc.getMyWallets() as WalletAddress[];
 
@@ -31,7 +31,7 @@ async function syncWallets(btc: BitcoinAdapter): Promise<Array<WalletAddress>> {
 async function syncTransactions(btc: BitcoinAdapter): Promise<Array<TransactionDetail>> {
   const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
   log.debug(logPrefix);
-  const dbTransactionIds = await mdb.fetchDbTransactions(true) as Array<string>;
+  const dbTransactionIds = await mdb.fetchTransactionIds() as string[];
   const toInsertRecords = [] as TransactionDetail[];
   const btcTransactions = await btc.getMyTransactions() as TransactionDetail[];
 
@@ -53,8 +53,8 @@ async function syncTransactions(btc: BitcoinAdapter): Promise<Array<TransactionD
 export async function main() {
   log.debug(__name__, 'main();');
   const config = await loadConfig( getEnv('CONFIGFILE', './config/config.yml') );
-  const wallets = [] as Promise<Array<WalletAddress>>[];
-  const transactions = [] as Promise<Array<TransactionDetail>>[];
+  const wallets = [] as Promise<WalletAddress[]>[];
+  const transactions = [] as Promise<TransactionDetail[]>[];
   mdb = new MongoModel(config.mongodb);
 
   const result = {

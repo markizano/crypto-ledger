@@ -54,33 +54,46 @@ export class MongoModel {
     this.mongo.close();
   }
 
-  async fetchWallets(addressOnly: boolean = false): Promise<Array<WalletAddress|string>> {
+  async fetchWallets(): Promise<WalletAddress[]> {
     log.verbose(__name__, 'fetchWallets();')
     const wallets = this.db.collection('wallets');
     const dbWallets = [] as WalletAddress[];
-    (await wallets.find().project( addressOnly? {address: 1}: {} ).toArray()).forEach( (x: Document) => {
-      if ( addressOnly ) {
-        dbWallets.push(x.address);
-      }
+    (await wallets.find().toArray()).forEach( (x: Document) => {
       dbWallets.push( new WalletAddress({...x}) );
     });
-    log.info(__name__, `Found ${dbWallets.length} wallets today!`);
     return dbWallets;
   }
 
-  async fetchDbTransactions(idsOnly: boolean = false): Promise<Array<TransactionDetail|string>> {
-    log.verbose(__name__, 'fetchDbTransactions();')
+  async fetchWalletIds(): Promise<string[]> {
+    log.verbose(__name__, 'fetchWalletIds();')
+    const wallets = this.db.collection('wallets');
+    const dbWallets = [] as string[];
+    (await wallets.find().project({ address: 1 }).toArray()).forEach( (x: Document) => {
+      dbWallets.push(x.address);
+    });
+    return dbWallets;
+  }
+
+  async fetchTransactions(): Promise<TransactionDetail[]> {
+    log.verbose(__name__, 'fetchTransactions();')
     const transactions = this.db.collection('transactions');
     var dbTransactions = [] as TransactionDetail[];
-    (await transactions.find().project(idsOnly? { txid: 1 }: {}).sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
+    (await transactions.find().sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
       if (!x.label) x.label = "undefined";
-      if ( !x.currency ) x.currency = "BTC";
-      x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
-      if ( idsOnly ) {
-        dbTransactions.push( x.txid );
-      } else {
-        dbTransactions.push( new TransactionDetail({...x}) );
-      }
+      if ( !x.currency ) x.currency = 'undef';
+      //if ( !x.usd ) x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
+      dbTransactions.push( new TransactionDetail({...x}) );
+    });
+    log.info(__name__, `Got ${dbTransactions.length} transactions from the DB!`);
+    return dbTransactions;
+  }
+
+  async fetchTransactionIds(): Promise<string[]> {
+    log.verbose(__name__, 'fetchTransactions();')
+    const transactions = this.db.collection('transactions');
+    var dbTransactions = [] as string[];
+    (await transactions.find().sort({blocktime: 1}).project({ txid: 1 }).toArray()).forEach( (x: Document) => {
+      dbTransactions.push( x.txid );
     });
     log.info(__name__, `Got ${dbTransactions.length} transactions from the DB!`);
     return dbTransactions;
@@ -96,5 +109,3 @@ export class MongoModel {
     return await this.db.collection('transactions').insertMany(btcTxns);
   }
 }
-
-
