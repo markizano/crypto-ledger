@@ -1,6 +1,7 @@
 
 const BitcoinClient = require('bitcoin-core');
 import { log } from '../logger';
+const __name__ = 'cryptoview.adapter.btc';
 
 enum Category {
   undefined = "undefined",
@@ -9,19 +10,30 @@ enum Category {
 }
 
 export class BitcoinRpcClientConfig {
+
   readonly username = '' as string;
   readonly password = '' as string;
+  readonly host = '127.0.0.1' as string;
   readonly port = '8333' as string;
   readonly wallet = 'default' as string;
+  readonly network = 'mainnet' as string;
+  readonly ssl = false as boolean;
+  readonly timeout = 30000 as number;
+  readonly currency = 'BTC' as string;
 
   constructor(cfg: any) {
     this.username = cfg.hasOwnProperty('username')? cfg.username: '';
     this.password = cfg.hasOwnProperty('password')? cfg.password: '';
     this.port = cfg.hasOwnProperty('port')? cfg.port: '';
+    this.host = cfg.hasOwnProperty('host')? cfg.host: '127.0.0.1';
     this.wallet = cfg.hasOwnProperty('wallet')? cfg.wallet: '';
+    this.network = cfg.hasOwnProperty('network')? cfg.network: 'mainnet';
+    this.ssl = cfg.hasOwnProperty('ssl')? cfg.ssl: false;
+    this.timeout = cfg.hasOwnProperty('timeout')? cfg.timeout: 30000;
+    this.currency = cfg.hasOwnProperty('currency') ? cfg.currency.toUpperCase() : 'BTC';
   }
 }
-  
+
 class TransactionDetailsStruct {
   readonly address = '' as string;
   readonly category = Category.undefined as Category;
@@ -48,12 +60,12 @@ export class TransactionDetail {
   readonly blocktime = 0 as number;
   readonly txid = '' as string;
   readonly details = [] as TransactionDetailsStruct[];
-  readonly hex = '' as string;
-  readonly decoded = {} as Object;
+  //readonly hex = '' as string;
+  //readonly decoded = {} as Object;
 
   constructor(txn: any) {
     this.amount = txn.hasOwnProperty('amount')? txn.amount: 0;
-    this.currency = txn.hasOwnProperty('currency')? txn.currency.toUpperCase(): 'BTC';
+    this.currency = txn.hasOwnProperty('currency')? txn.currency.toUpperCase(): 'undef';
     this.confirmations = txn.hasOwnProperty('confirmations')? txn.confirmations: 0;
     this.blockhash = txn.hasOwnProperty('blockhash')? txn.blockhash: '';
     this.blockheight = txn.hasOwnProperty('blockheight')? txn.blockheight: 0;
@@ -74,8 +86,22 @@ export class TransactionDetail {
     } else {
       this.details = [];
     }
-    this.hex = txn.hasOwnProperty('hex')? txn.hex: '';
-    this.decoded = txn.hasOwnProperty('decoded')? txn.decoded: {};
+    // this.hex = txn.hasOwnProperty('hex')? txn.hex: '';
+    // this.decoded = txn.hasOwnProperty('decoded')? txn.decoded: {};
+  }
+
+  getAddress(): string {
+    if ( !this.details.length ) {
+      return '';
+    }
+    return this.details[0].address;
+  }
+
+  getCategory(): Category {
+    if ( !this.details.length ) {
+      return Category.undefined;
+    }
+    return this.details[0].category;
   }
 }
 
@@ -87,13 +113,19 @@ export class WalletAddress {
   readonly address = '' as string;
   readonly amount = 0 as number;
   readonly label = '' as string;
+  currency = 'BTC' as string;
   readonly txids = [] as string[];
+  private logPrefix = __name__ as string;
 
   constructor(cfg: any) {
     if ( cfg.address ) this.address = cfg.address;
     if ( cfg.amount ) this.amount = cfg.amount;
     if ( cfg.label ) this.label = cfg.label;
-    if ( cfg.txids ) this.txids = cfg.txids;
+    if ( cfg.currency ) this.currency = cfg.currency;
+    //  Coerce to a unique array of strings. Apparently Assets create a duplicate txid in the wallet list
+    // on Ravencoin since you are both an output and input for the txn.
+    if ( cfg.txids ) this.txids = [ ...new Set(cfg.txids) ] as string[];
+    this.logPrefix = `${__name__}.WalletAddress(${this.currency})`;
   }
 
   /**
@@ -103,13 +135,17 @@ export class WalletAddress {
    * @returns {TransactionDetail[]} Array of Transactions
    */
   async txid2txn(client: InstanceType<typeof BitcoinClient>): Promise<Array<TransactionDetail>> {
-    log.verbose(module.id, 'Collecting transactions related to the wallet.')
+    log.info(this.logPrefix, 'Collecting transactions related to the wallet.')
     const result = [] as TransactionDetail[];
     for ( var t in this.txids ) {
       var txid = this.txids[t];
-      //log.debug(module.id, `client.getTransaction(${txid}, true, true)`)
-      const txn = await client.getTransaction(txid, true, true);
-      result.push(txn);
+      log.debug(this.logPrefix, `client.getTransaction(${txid})`)
+      const txn = await client.getTransaction(txid);
+      log.trace(this.logPrefix, 'client.getTransaction().result = ' + JSON.stringify(txn, null, 2));
+      result.push(new TransactionDetail({
+        ...txn,
+        currency: this.currency
+      }));
     }
     return result;
   }
@@ -123,34 +159,44 @@ export class WalletAddress {
 export class BitcoinAdapter {
   readonly config = undefined as unknown as BitcoinRpcClientConfig;
   client = undefined as unknown as InstanceType<typeof BitcoinClient>;
-  private results = {} as any;
+  private logPrefix = __name__ as string;
 
   constructor(cfg: BitcoinRpcClientConfig) {
+    this.logPrefix = `${__name__}.BitcoinAdapter(${cfg.currency})`;
     this.config = new BitcoinRpcClientConfig(cfg);
     this.client = new BitcoinClient(this.config);
   }
 
-  clearCache(): void {
-    log.verbose(module.id, 'btc.BitcoinAdapter.clearCache()');
-    this.results = {};
+  getCurrency(): string {
+    if ( !this.config.currency ) {
+      return '';
+    }
+    return this.config.currency;
   }
 
+  /**
+   * Get a list of Wallet Objects that contain detailed information about the list of wallets we are monitoring.
+   * @returns Promise<Array<WalletAddress>> Get the list of wallets as address objects.
+   */
   async getMyWallets(): Promise<Array<WalletAddress>> {
-    if ( this.results.hasOwnProperty('myWallets') ) {
-      log.verbose(module.id, 'cache-hit! Returning myWallets from previous run.');
-      return this.results['myWallets'];
-    }
-    this.results['myWallets'] = [] as WalletAddress[];
-    (await this.client.listReceivedByAddress(0, true, true)).forEach( (address: any) => {
-      var walletAddress = new WalletAddress(address);
-      this.results['myWallets'].push( walletAddress );
+    log.verbose(this.logPrefix, 'getMyWallets()')
+    const result = [] as WalletAddress[];
+    // We want receiving addresses that have at least 1 confirmation, but not empty (e.g. wallets we've only sent tokens to)
+    //  or watchOnly wallets since they aren't "my" wallets.
+    const receivingAddresses = await this.client.listReceivedByAddress(1, false, false);
+    log.trace(this.logPrefix, 'getMyWallets.listReceivedByAddress().result = ' + JSON.stringify(receivingAddresses));
+    receivingAddresses.forEach( (address: any) => {
+      var walletAddress = new WalletAddress({
+        ...address,
+        currency: this.getCurrency()
+      });
+      result.push(walletAddress);
     });
-    log.info(module.id, 'cache-miss! Returning myWallets from current execution.');
-    return this.results['myWallets'];
+     return result;
   }
 
   async getMyTransactions(): Promise<Array<TransactionDetail>> {
-    log.verbose(module.id,'getMyTransactions()');
+    log.verbose(this.logPrefix,'getMyTransactions()');
     const result = [] as TransactionDetail[];
     const wallets = await this.getMyWallets();
     for ( var w in wallets ) {
@@ -158,6 +204,7 @@ export class BitcoinAdapter {
       var txns = await wallet.txid2txn(this.client);
       result.push(...txns)
     }
+    log.info(this.logPrefix, `Found ${result.length} transactions.`)
     return result;
   }
 }
