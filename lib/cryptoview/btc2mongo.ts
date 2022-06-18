@@ -67,9 +67,11 @@ export async function main() {
 
   Object.keys(config.blockchains).forEach( (bc: string) => {
     var blockchain = config.blockchains[bc];
-    const btc = new BitcoinAdapter(blockchain);
-    wallets.push( syncWallets(btc) );
-    transactions.push( syncTransactions(btc) );
+    if ( blockchain.type == 'bitcoin' ) {
+      const btc = new BitcoinAdapter(blockchain);
+      wallets.push( syncWallets(btc) );
+      transactions.push( syncTransactions(btc) );
+    }
   });
   result.actions.push( { wallets: await Promise.all(wallets) } );
   result.actions.push( { transactions: await Promise.all(transactions) } );

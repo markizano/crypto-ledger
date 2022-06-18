@@ -4,6 +4,7 @@ import { readFile } from 'fs/promises';
 import { log } from './logger';
 import { BitcoinRpcClientConfig } from './adapter/btc';
 import { MongoDbConfig } from './adapter/mongo';
+import { EthRpcConfig } from './adapter/eth';
 const __name__ = 'cryptoview.utils';
 
 export function getEnv(name: string, defaltam: string = ''): string {
@@ -30,6 +31,7 @@ export class CryptoViewConfig {
     ravencoin: {} as BitcoinRpcClientConfig,
   } as any;
   readonly mongodb = {} as MongoDbConfig;
+  readonly ethereum = {} as any;
 
   constructor(cfg: any) {
     if ( Object.prototype.hasOwnProperty.call(cfg, 'blockchains') && cfg.blockchains ) {
@@ -40,6 +42,7 @@ export class CryptoViewConfig {
     if ( Object.prototype.hasOwnProperty.call(cfg, 'mongodb') && cfg.mongodb ) {
       this.mongodb = new MongoDbConfig(cfg.mongodb);
     }
+    this.ethereum = new EthRpcConfig( cfg.ethereum );
   }
 }
 
