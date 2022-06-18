@@ -1,50 +1,39 @@
-#!/usr/bin/env node
+#!/usr/bin/mongo --nodb
 
-const utils = require('../lib/cryptoview/utils');
-const log = require('../lib/cryptoview/logger').log;
+var db = connect(_getEnv('MONGO_URL'));
+var wallets = db.getCollection('wallets');
+var transactions = db.getCollection('transactions');
 
-const mongodb = require('mongodb');
-const MONGO_URL = utils.getEnv('MONGO_URL', 'mongo://localhost:27017/');
-const MONGO_DBNAME = utils.getEnv('MONGO_DBNAME', 'crypto-ledger');
-const client = new mongodb.MongoClient(MONGO_URL);
+var index = null;
 
-async function ensureIndicies() {
-  await client.connect();
-  let db = client.db(MONGO_DBNAME);
-  const result = [];
-
-  let debugCollections = await db.listCollections().toArray();
-  log.info(module.path, 'Collections: ' + JSON.stringify(debugCollections, null, 2));
-
+print('\x1b[34mwallets.address\x1b[0m');
+index = wallets.createIndex(
+  { address: 1 },
   {
-    const wallets = db.collection('wallets');
-    let walletIndex = await wallets.createIndex(
-      { name: 1 },
-      { background: true, name: 'wallets_name' }
-    );
-    console.log('db.wallets: ' + walletIndex);
-    result.push('wallets.' + walletIndex);
-  };
+    background: 1,
+    unique: true,
+    name: 'wallets__address'
+  }
+);
+printjson(index);
 
+print('\x1b[34mtransactions.txid::transactions.currency\x1b[0m');
+index = transactions.createIndex(
+  { txid: 1, currency: 1 },
   {
-    const transactions = db.collection('transactions');
-    let txnIndex = await transactions.createIndex({
-      blocktime: 1
-    }, {
-      background: 1,
-      name: 'transactions_blocktime'
-    });
-    console.log('db.transactions: ' + txnIndex);
-    result.push('transactions.' + txnIndex);
-  };
+    background: 1,
+    unique: true,
+    name: 'transactions__txid_currency'
+  }
+);
+printjson(index);
 
-  return result;
-}
-
-// Python equivalent of if __name__ == "__main__":
-if ( typeof require !== "undefined" && require.main == module ) {
-  ensureIndicies().then(utils.debugPass).catch(utils.debugFail).finally(() => {
-    client.close();
-  });
-}
-
+print('\x1b[34mtransactions.blocktime\x1b[0m');
+index = transactions.createIndex(
+  { blocktime: 1 },
+  {
+    background: 1,
+    name: 'transactions__blocktime'
+  }
+);
+printjson(index);

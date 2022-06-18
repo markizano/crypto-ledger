@@ -1,37 +1,26 @@
-#!/usr/bin/env node
+#!/usr/bin/mongo --nodb
 
-const utils = require('../lib/cryptoview/utils');
-const mongodb = require('mongodb');
-const client = new mongodb.MongoClient(process.env.MONGO_URL);
+var db = connect(_getENV('MONGO_URL'));
+var admin = db.getSiblingDB('admin');
 
-async function main() {
-    await client.connect();
-    const admin = client.db('admin');
-    const result = [];
+var user = null, role = null;
+print('\x1b[34mRole\x1b[0m: ');
+role = admin.createRole({
+    role: 'cryptoLedger',
+    privileges: [
+        { resource: { cluster: true }, actions: [ 'listDatabases' ] }
+    ],
+    roles: [
+        { db: 'crypto-ledger', role: 'dbAdmin' },
+        { db: 'crypto-ledger', role: 'readWrite' }
+    ]        
+});
+printjson(role);
 
-    // @TODO: Check if user is present before trying to add.
-    result.push( await admin.createRole({
-        role: 'cryptoLedger',
-        privileges: [
-            { resource: { cluster: true }, actions: [ 'listDatabases' ] }
-        ],
-        roles: [
-            { db: 'crypto-ledger', role: 'dbAdmin' },
-            { db: 'crypto-ledger', role: 'readWrite' }
-        ]        
-    }));
-    result.push( await admin.createUser({
-        user: 'ledger',
-        pwd: '!_CryptoLedger_!',
-        roles: [ 'cryptoLedger' ]
-    }) );
-    return result;
-}
-
-// Python equivalent of if __name__ == "__main__":
-if ( typeof require !== "undefined" && require.main == module ) {
-    main().then(utils.debugPass).catch(utils.debugFail).finally(() => {
-      client.close();
-    });
-}
-  
+print('\x1b[34mUser\x1b[0m: ');
+user = admin.createUser({
+    user: 'ledger',
+    pwd: '!_CryptoLedger_!',
+    roles: [ 'cryptoLedger' ]
+});
+printjson(user);
