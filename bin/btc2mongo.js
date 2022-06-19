@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-const utils = require('../lib/cryptoview/utils');
-const btc2mongo = require('../lib/cryptoview/btc2mongo');
-const { log } = require('../lib/cryptoview/logger');
+const utils = require('cryptoview/utils');
+const btc2mongo = require('cryptoview/btc2mongo');
+const { log } = require('cryptoview/logger');
 const __name__ = 'btc2mongo.js';
 
 // Python equivalent of if __name__ == "__main__":
 if ( typeof require !== "undefined" && require.main == module ) {
+  log.verbose(__name__, 'entrypoint.sh');
     btc2mongo.main()
       .then(utils.debugPass)
       .catch((err) => {

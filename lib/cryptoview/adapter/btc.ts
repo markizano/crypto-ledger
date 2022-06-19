@@ -20,6 +20,7 @@ export class BitcoinRpcClientConfig {
   readonly ssl = false as boolean;
   readonly timeout = 30000 as number;
   readonly currency = 'BTC' as string;
+  readonly type = '' as string;
 
   constructor(cfg: any) {
     this.username = cfg.hasOwnProperty('username')? cfg.username: '';
@@ -31,6 +32,7 @@ export class BitcoinRpcClientConfig {
     this.ssl = cfg.hasOwnProperty('ssl')? cfg.ssl: false;
     this.timeout = cfg.hasOwnProperty('timeout')? cfg.timeout: 30000;
     this.currency = cfg.hasOwnProperty('currency') ? cfg.currency.toUpperCase() : 'BTC';
+    this.type = cfg.hasOwnProperty('type')? cfg.type: '';
   }
 }
 

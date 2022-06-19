@@ -55,6 +55,7 @@ export async function main() {
   const config = await loadConfig( getEnv('CONFIGFILE', './config/config.yml') );
   const wallets = [] as Promise<WalletAddress[]>[];
   const transactions = [] as Promise<TransactionDetail[]>[];
+  const blockchains = Object.keys(config.blockchains) as string[];
   mdb = new MongoModel(config.mongodb);
 
   const result = {
@@ -65,16 +66,24 @@ export async function main() {
 
   await mdb.connect();
 
-  Object.keys(config.blockchains).forEach( (bc: string) => {
+  log.verbose(__name__, `Iterating over ${blockchains.length} blockchains...`);
+  blockchains.forEach( (bc: string) => {
     var blockchain = config.blockchains[bc];
     if ( blockchain.type == 'bitcoin' ) {
+      log.verbose(__name__, `Bitcoin-type blockchain found for ${blockchain.currency}.`);
       const btc = new BitcoinAdapter(blockchain);
       wallets.push( syncWallets(btc) );
       transactions.push( syncTransactions(btc) );
+    } else {
+      log.warn(__name__, `Skipping non-bitcoin blockchain ${bc}.`);
+      log.debug(__name__, blockchain);
     }
   });
+  log.verbose(__name__, 'Done iterating blockchains!');
+  log.verbose(__name__, 'Waiting on promises to come back.')
   result.actions.push( { wallets: await Promise.all(wallets) } );
   result.actions.push( { transactions: await Promise.all(transactions) } );
+  log.verbose(__name__, 'Done waiting on promises.')
 
   return result;
 }
