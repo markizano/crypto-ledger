@@ -1,6 +1,6 @@
 
 import { log } from 'cryptoview/logger';
-import { getEnv, loadConfig } from 'cryptoview/utils';
+import { getConfig } from 'cryptoview/config';
 import { BitcoinAdapter, BitcoinTransactionDetail, BitcoinWalletAddress } from 'cryptoview/adapter/btc';
 import { MongoModel } from 'cryptoview/adapter/mongo';
 const __name__ = 'cryptoview.btc2mongo';
@@ -52,7 +52,7 @@ async function syncTransactions(btc: BitcoinAdapter): Promise<Array<BitcoinTrans
 
 export async function main() {
   log.debug(__name__, 'main();');
-  const config = await loadConfig( getEnv('CONFIGFILE', './config/config.yml') );
+  const config = await getConfig();
   const wallets = [] as Promise<BitcoinWalletAddress[]>[];
   const transactions = [] as Promise<BitcoinTransactionDetail[]>[];
   const blockchains = Object.keys(config.blockchains) as string[];

@@ -2,7 +2,7 @@
 import { BitcoinWalletAddress } from 'cryptoview/adapter/btc';
 import { MongoModel } from 'cryptoview/adapter/mongo';
 import { log } from 'cryptoview/logger';
-import { getEnv, loadConfig } from 'cryptoview/utils';
+import { getConfig } from 'cryptoview/config';
 const __name__ = 'cryptoview.model.balance';
 
 let mdb = undefined as unknown as MongoModel;
@@ -26,7 +26,7 @@ class WalletBalance {
 
 export async function main() {
   log.debug(__name__, 'main();');
-  const config = await loadConfig( getEnv('CONFIGFILE', './config/config.yml') );
+  const config = await getConfig();
   mdb = new MongoModel(config.mongodb);
 
   const result = {
