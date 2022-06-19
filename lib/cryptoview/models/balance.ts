@@ -1,5 +1,5 @@
 
-import { WalletAddress } from 'cryptoview/adapter/btc';
+import { BitcoinWalletAddress } from 'cryptoview/adapter/btc';
 import { MongoModel } from 'cryptoview/adapter/mongo';
 import { log } from 'cryptoview/logger';
 import { getEnv, loadConfig } from 'cryptoview/utils';
@@ -37,7 +37,7 @@ export async function main() {
 
   await mdb.connect();
 
-  (await mdb.fetchWallets()).forEach( (wallet: WalletAddress) => {
+  (await mdb.fetchWallets()).forEach( (wallet: BitcoinWalletAddress) => {
     const walBal = new WalletBalance(wallet.label, wallet.address, wallet.amount, wallet.currency);
     log.info(__name__, walBal.toString());
     if (result.balances.hasOwnProperty(wallet.currency)) {

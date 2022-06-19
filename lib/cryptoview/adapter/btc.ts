@@ -36,7 +36,7 @@ export class BitcoinRpcClientConfig {
   }
 }
 
-class TransactionDetailsStruct {
+class BitcoinTransactionDetailsStruct {
   readonly address = '' as string;
   readonly category = Category.undefined as Category;
   readonly amount = 0 as number;
@@ -52,7 +52,7 @@ class TransactionDetailsStruct {
   }
 }
 
-export class TransactionDetail {
+export class BitcoinTransactionDetail {
   readonly amount = 0 as number;
   readonly currency = '' as string;
   confirmations = 0 as number;
@@ -61,7 +61,7 @@ export class TransactionDetail {
   readonly blockindex = 0 as number;
   readonly blocktime = 0 as number;
   readonly txid = '' as string;
-  readonly details = [] as TransactionDetailsStruct[];
+  readonly details = [] as BitcoinTransactionDetailsStruct[];
   //readonly hex = '' as string;
   //readonly decoded = {} as Object;
 
@@ -76,8 +76,8 @@ export class TransactionDetail {
     this.txid = txn.hasOwnProperty('txid')? txn.txid: '';
     if ( txn.hasOwnProperty('details') && txn.details instanceof Array ) {
       for ( var d in txn.details ) {
-        var detail = txn.details[d] as TransactionDetailsStruct;
-        this.details.push( new TransactionDetailsStruct(
+        var detail = txn.details[d] as BitcoinTransactionDetailsStruct;
+        this.details.push( new BitcoinTransactionDetailsStruct(
           detail.address,
           detail.category,
           detail.amount,
@@ -111,7 +111,7 @@ export class TransactionDetail {
  * WalletAddress: Helper class to class BitcoinAdapter.
  * This will provide some structure to the results that come from Bitcoin.listReceivedByAddress().
  */
-export class WalletAddress {
+export class BitcoinWalletAddress {
   readonly address = '' as string;
   readonly amount = 0 as number;
   readonly label = '' as string;
@@ -134,17 +134,17 @@ export class WalletAddress {
    * Transaction id 2 transaction. If you give me the Bitcoin client, I will fetch and attach
    * the full transaction object to this local list of transaction hashes.
    * @param {BitcoinClient} {client} The bitcoin-core RPC client to collect the details.
-   * @returns {TransactionDetail[]} Array of Transactions
+   * @returns {BitcoinTransactionDetail[]} Array of Transactions
    */
-  async txid2txn(client: InstanceType<typeof BitcoinClient>): Promise<Array<TransactionDetail>> {
+  async txid2txn(client: InstanceType<typeof BitcoinClient>): Promise<Array<BitcoinTransactionDetail>> {
     log.info(this.logPrefix, 'Collecting transactions related to the wallet.')
-    const result = [] as TransactionDetail[];
+    const result = [] as BitcoinTransactionDetail[];
     for ( var t in this.txids ) {
       var txid = this.txids[t];
       log.debug(this.logPrefix, `client.getTransaction(${txid})`)
       const txn = await client.getTransaction(txid);
       log.trace(this.logPrefix, 'client.getTransaction().result = ' + JSON.stringify(txn, null, 2));
-      result.push(new TransactionDetail({
+      result.push(new BitcoinTransactionDetail({
         ...txn,
         currency: this.currency
       }));
@@ -180,15 +180,15 @@ export class BitcoinAdapter {
    * Get a list of Wallet Objects that contain detailed information about the list of wallets we are monitoring.
    * @returns Promise<Array<WalletAddress>> Get the list of wallets as address objects.
    */
-  async getMyWallets(): Promise<Array<WalletAddress>> {
+  async getMyWallets(): Promise<Array<BitcoinWalletAddress>> {
     log.verbose(this.logPrefix, 'getMyWallets()')
-    const result = [] as WalletAddress[];
+    const result = [] as BitcoinWalletAddress[];
     // We want receiving addresses that have at least 1 confirmation, but not empty (e.g. wallets we've only sent tokens to)
     //  or watchOnly wallets since they aren't "my" wallets.
     const receivingAddresses = await this.client.listReceivedByAddress(1, false, false);
     log.trace(this.logPrefix, 'getMyWallets.listReceivedByAddress().result = ' + JSON.stringify(receivingAddresses));
     receivingAddresses.forEach( (address: any) => {
-      var walletAddress = new WalletAddress({
+      var walletAddress = new BitcoinWalletAddress({
         ...address,
         currency: this.getCurrency()
       });
@@ -197,9 +197,9 @@ export class BitcoinAdapter {
      return result;
   }
 
-  async getMyTransactions(): Promise<Array<TransactionDetail>> {
+  async getMyTransactions(): Promise<Array<BitcoinTransactionDetail>> {
     log.verbose(this.logPrefix,'getMyTransactions()');
-    const result = [] as TransactionDetail[];
+    const result = [] as BitcoinTransactionDetail[];
     const wallets = await this.getMyWallets();
     for ( var w in wallets ) {
       var wallet = wallets[w];
