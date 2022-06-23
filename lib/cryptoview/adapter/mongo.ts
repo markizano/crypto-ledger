@@ -1,7 +1,7 @@
 
 import { MongoClient, Document, Db, InsertManyResult } from "mongodb";
 import { log } from "cryptoview/logger";
-import { BitcoinWalletAddress, BitcoinTransactionDetail } from 'cryptoview/adapter/btc';
+import { Bitcoin } from 'cryptoview/adapter/btc';
 const __name__ = 'cryptoview.mongo';
 
 export class MongoDbConfig {
@@ -54,12 +54,12 @@ export class MongoModel {
     this.mongo.close();
   }
 
-  async fetchWallets(): Promise<BitcoinWalletAddress[]> {
+  async fetchWallets(): Promise<Bitcoin.WalletAddress[]> {
     log.verbose(__name__, 'fetchWallets();')
     const wallets = this.db.collection('wallets');
-    const dbWallets = [] as BitcoinWalletAddress[];
+    const dbWallets = [] as Bitcoin.WalletAddress[];
     (await wallets.find().toArray()).forEach( (x: Document) => {
-      dbWallets.push( new BitcoinWalletAddress({...x}) );
+      dbWallets.push( new Bitcoin.WalletAddress({...x}) );
     });
     return dbWallets;
   }
@@ -74,15 +74,15 @@ export class MongoModel {
     return dbWallets;
   }
 
-  async fetchTransactions(): Promise<BitcoinTransactionDetail[]> {
+  async fetchTransactions(): Promise<Bitcoin.Txn[]> {
     log.verbose(__name__, 'fetchTransactions();')
     const transactions = this.db.collection('transactions');
-    var dbTransactions = [] as BitcoinTransactionDetail[];
+    var dbTransactions = [] as Bitcoin.Txn[];
     (await transactions.find().sort({blocktime: 1}).toArray()).forEach( (x: Document) => {
       if (!x.label) x.label = "undefined";
       if ( !x.currency ) x.currency = 'undef';
       //if ( !x.usd ) x.usd = 0; // @TODO: Go fetch the price per the blocktime from some coinmarketcap/coingecko API endpoint.
-      dbTransactions.push( new BitcoinTransactionDetail({...x}) );
+      dbTransactions.push( new Bitcoin.Txn({...x}) );
     });
     log.info(__name__, `Got ${dbTransactions.length} transactions from the DB!`);
     return dbTransactions;
@@ -99,12 +99,12 @@ export class MongoModel {
     return dbTransactions;
   }
 
-  async addWallets(btcWallets: BitcoinWalletAddress[]): Promise<InsertManyResult<Document>> {
+  async addWallets(btcWallets: Bitcoin.WalletAddress[]): Promise<InsertManyResult<Document>> {
     log.verbose(__name__, `addWallets(${btcWallets[0].currency}, ${btcWallets})`);
     return await this.db.collection('wallets').insertMany(btcWallets);
   }
 
-  async addTransactions(btcTxns: BitcoinTransactionDetail[]): Promise<InsertManyResult<Document>> {
+  async addTransactions(btcTxns: Bitcoin.Txn[]): Promise<InsertManyResult<Document>> {
     log.verbose(__name__, `addTransactions(${btcTxns[0].currency}, ${btcTxns})`);
     return await this.db.collection('transactions').insertMany(btcTxns);
   }

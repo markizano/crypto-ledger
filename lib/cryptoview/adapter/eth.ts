@@ -37,7 +37,7 @@ export async function main() {
     const config = await getConfig();
     const web3 = new Web3( config.ethereum.getServiceUrl() );
 
-    const balance = web3.utils.fromWei( await web3.eth.getBalance(config.ethereum.address) );
+    const balance = web3.utils.fromWei( await web3.eth.getBalance(config.ethereum.address),  'ether' );
     log.info(__name__, `ETH Balance: ${balance}`);
     return balance;
 }

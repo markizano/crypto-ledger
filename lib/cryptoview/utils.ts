@@ -15,5 +15,5 @@ export function debugPass(value: any): void {
 }
   
 export function debugFail(e: Error): void {
-  log.error(__name__, '[ \x1b[1;31mException\x1b[0m ]: ' + e );
+  log.error(__name__, `[ \x1b[1;31mException\x1b[0m ]: ${e}\n${e.stack}`);
 }

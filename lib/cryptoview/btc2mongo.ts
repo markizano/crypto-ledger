@@ -1,94 +1,115 @@
 
 import { log } from 'cryptoview/logger';
-import { getConfig } from 'cryptoview/config';
-import { BitcoinAdapter, BitcoinTransactionDetail, BitcoinWalletAddress } from 'cryptoview/adapter/btc';
+import { debugFail } from 'cryptoview/utils';
+import { CryptoView, getConfig } from 'cryptoview/config';
+import { Bitcoin } from 'cryptoview/adapter/btc';
 import { MongoModel } from 'cryptoview/adapter/mongo';
 const __name__ = 'cryptoview.btc2mongo';
 
-let mdb = undefined as unknown as MongoModel;
+export class BTC2Mongo {
+  private mdb = undefined as unknown as MongoModel;
+  private readonly config = {} as CryptoView.Config;
+  private readonly logPrefix = `${__name__}.BTC2Mongo` as string;
+  readonly adapters = [] as Bitcoin.Adapter[];
 
-async function syncWallets(btc: BitcoinAdapter): Promise<Array<BitcoinWalletAddress>> {
-  const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
-  log.debug(logPrefix);
-  const dbWalletAddrs = await mdb.fetchWalletIds();
-  const toInsertRecords = [] as BitcoinWalletAddress[];
-  const btcWallets = await btc.getMyWallets() as BitcoinWalletAddress[];
+  constructor(config: CryptoView.Config) {
+    this.config = config;
+    this.mdb = new MongoModel(this.config.mongodb);
+  }
 
-  for ( var w in btcWallets ) {
-    var btcWallet = btcWallets[w];
-    if ( dbWalletAddrs.includes( btcWallet.address ) ) {
-      continue;
+  async syncWallets(btc: Bitcoin.Adapter): Promise<Array<Bitcoin.WalletAddress>> {
+    log.debug(this.logPrefix, `syncWallets(${btc.getCurrency()})`);
+    const dbWalletAddrs = await this.mdb.fetchWalletIds();
+    const toInsertRecords = [] as Bitcoin.WalletAddress[];
+    const btcWallets = await btc.getMyWallets() as Bitcoin.WalletAddress[];
+  
+    for ( var w in btcWallets ) {
+      var btcWallet = btcWallets[w];
+      if ( dbWalletAddrs.includes( btcWallet.address ) ) {
+        continue;
+      }
+      log.warn(this.logPrefix, `I just found a new wallet address: ${btcWallet.address} on blockchain for ${btcWallet.currency} with ${btcWallet.txids.length} transactions.`);
+      toInsertRecords.push( btcWallet );
     }
-    log.warn(logPrefix, `I just found a new wallet address: ${btcWallet.address} on blockchain for ${btcWallet.currency} with ${btcWallet.txids.length} transactions.`);
-    toInsertRecords.push( btcWallet );
+    if ( toInsertRecords.length ) {
+      await this.mdb.addWallets(toInsertRecords);
+    }
+    return toInsertRecords;
   }
-  if ( toInsertRecords.length ) {
-    await mdb.addWallets(toInsertRecords);
+
+  async syncTransactions(btc: Bitcoin.Adapter): Promise<Array<Bitcoin.Txn>> {
+    const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
+    log.debug(logPrefix);
+    const dbTransactionIds = await this.mdb.fetchTransactionIds() as string[];
+    const toInsertRecords = [] as Bitcoin.Txn[];
+    const btcTransactions = await btc.getMyTransactions() as Bitcoin.Txn[];
+  
+    for ( var t in btcTransactions ) {
+      var btcTxn = btcTransactions[t];
+      if ( dbTransactionIds.includes( btcTxn.txid ) ) {
+        continue;
+      }
+      log.warn(logPrefix, '[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
+      log.info(logPrefix, `  Address ${btcTxn.getAddress()} has ${btcTxn.getCategory()} ${btcTxn.amount} of ${btcTxn.currency} on ${btcTxn.blocktime}.`);
+      toInsertRecords.push(btcTxn);
+    }
+    if ( toInsertRecords.length ) {
+      await this.mdb.addTransactions(toInsertRecords);
+    }
+    return toInsertRecords;
   }
-  return toInsertRecords;
+
+  async btc2mongo() {
+    log.debug(this.logPrefix, 'BTC2Mongo();');
+    const wallets = [] as Promise<Bitcoin.WalletAddress[]>[];
+    const transactions = [] as Promise<Bitcoin.Txn[]>[];
+    const blockchains = Object.keys(this.config.blockchains) as string[];
+    this.mdb = new MongoModel(this.config.mongodb);
+  
+    const result = {
+      status: 200 as number,
+      response: 'OK' as string,
+      actions: [] as any,
+    } as any;
+  
+    await this.mdb.connect();
+  
+    log.verbose(this.logPrefix, `Iterating over ${blockchains.length} blockchains...`);
+    blockchains.forEach( (bc: string) => {
+      var blockchain = this.config.blockchains.getBlockchain(bc);
+      if ( blockchain.type == 'bitcoin' ) {
+        log.verbose(this.logPrefix, `Bitcoin-type blockchain found for ${blockchain.currency}.`);
+        const btc = new Bitcoin.Adapter(blockchain);
+        wallets.push( this.syncWallets(btc) );
+        transactions.push( this.syncTransactions(btc) );
+      } else {
+        log.warn(this.logPrefix, `Skipping non-bitcoin blockchain ${bc}.`);
+        log.debug(this.logPrefix, blockchain);
+      }
+    });
+    log.verbose(this.logPrefix, 'Done iterating blockchains!');
+    log.verbose(this.logPrefix, 'Waiting on promises to come back.')
+    result.actions.push( { wallets: await Promise.all(wallets) } );
+    result.actions.push( { transactions: await Promise.all(transactions) } );
+    log.verbose(this.logPrefix, 'Done waiting on promises.')
+  
+    return result;
+  }
+
+  tidyUp(): void {
+    this.mdb.close();
+    log.info(this.logPrefix, 'Complete!');
+  }
 }
 
-async function syncTransactions(btc: BitcoinAdapter): Promise<Array<BitcoinTransactionDetail>> {
-  const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
-  log.debug(logPrefix);
-  const dbTransactionIds = await mdb.fetchTransactionIds() as string[];
-  const toInsertRecords = [] as BitcoinTransactionDetail[];
-  const btcTransactions = await btc.getMyTransactions() as BitcoinTransactionDetail[];
-
-  for ( var t in btcTransactions ) {
-    var btcTxn = btcTransactions[t];
-    if ( dbTransactionIds.includes( btcTxn.txid ) ) {
-      continue;
-    }
-    log.warn(logPrefix, '[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
-    log.info(logPrefix, `  Address ${btcTxn.getAddress()} has ${btcTxn.getCategory()} ${btcTxn.amount} of ${btcTxn.currency} on ${btcTxn.blocktime}.`);
-    toInsertRecords.push(btcTxn);
-  }
-  if ( toInsertRecords.length ) {
-    await mdb.addTransactions(toInsertRecords);
-  }
-  return toInsertRecords;
-}
-
-export async function main() {
+export function main(): any {
+  var result = undefined as any;
   log.debug(__name__, 'main();');
-  const config = await getConfig();
-  const wallets = [] as Promise<BitcoinWalletAddress[]>[];
-  const transactions = [] as Promise<BitcoinTransactionDetail[]>[];
-  const blockchains = Object.keys(config.blockchains) as string[];
-  mdb = new MongoModel(config.mongodb);
-
-  const result = {
-    status: 200 as number,
-    response: 'OK' as string,
-    actions: [] as any,
-  } as any;
-
-  await mdb.connect();
-
-  log.verbose(__name__, `Iterating over ${blockchains.length} blockchains...`);
-  blockchains.forEach( (bc: string) => {
-    var blockchain = config.blockchains[bc];
-    if ( blockchain.type == 'bitcoin' ) {
-      log.verbose(__name__, `Bitcoin-type blockchain found for ${blockchain.currency}.`);
-      const btc = new BitcoinAdapter(blockchain);
-      wallets.push( syncWallets(btc) );
-      transactions.push( syncTransactions(btc) );
-    } else {
-      log.warn(__name__, `Skipping non-bitcoin blockchain ${bc}.`);
-      log.debug(__name__, blockchain);
-    }
-  });
-  log.verbose(__name__, 'Done iterating blockchains!');
-  log.verbose(__name__, 'Waiting on promises to come back.')
-  result.actions.push( { wallets: await Promise.all(wallets) } );
-  result.actions.push( { transactions: await Promise.all(transactions) } );
-  log.verbose(__name__, 'Done waiting on promises.')
-
-  return result;
-}
-
-export function tidyUp() {
-  mdb.close();
-  log.info(__name__, 'Complete!');
+  return getConfig().then( (config: CryptoView.Config) => {
+    result = new BTC2Mongo(config);
+    return result.btc2mongo();
+  }).catch(debugFail)
+  .finally(() => {
+    result.tidyUp();
+  })
 }

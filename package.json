@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "window": "tsc && NODE_PATH=./build node bin/main.js",
-    "server": "tsc && NODE_PATH=./build node bin/server.js"
+    "server": "tsc && NODE_PATH=./build node bin/server.js",
+    "btc2mongo": "tsc && NODE_PATH=./build node bin/btc2mongo.js"
   },
   "author": "",
   "license": "ISC",
