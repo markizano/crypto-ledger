@@ -2,14 +2,15 @@
 import { load as loadYaml } from 'js-yaml';
 import { readFile } from 'fs/promises';
 
+import { log } from 'cryptoview/logger';
 import { getEnv } from 'cryptoview/utils';
 import { MongoDbConfig } from 'cryptoview/adapter/mongo';
 import { Bitcoin } from 'cryptoview/adapter/btc';
 import { Ravencoin } from 'cryptoview/adapter/rvn';
 import { LitecoinRpcClientConfig } from 'cryptoview/adapter/ltc';
 import { DogecoinRpcClientConfig } from 'cryptoview/adapter/doge';
-import { EthRpcConfig } from 'cryptoview/adapter/eth';
-import { log } from 'cryptoview/logger';
+import { Ethereum } from 'cryptoview/adapter/eth';
+import { BinanceSmartChain } from 'cryptoview/adapter/bnb';
 
 const __name__ = 'cryptoview.config';
 
@@ -20,6 +21,8 @@ export namespace CryptoView {
         litecoin = {} as LitecoinRpcClientConfig;
         dogecoin = {} as DogecoinRpcClientConfig;
         ravencoin = {} as Ravencoin.RpcClientConfig;
+        ethereum = {} as Ethereum.RpcConfig;
+        binance = {} as BinanceSmartChain.Config;
 
         getBlockchain(name: string): any {
             switch(name) {
@@ -27,7 +30,11 @@ export namespace CryptoView {
                 case 'litecoin': return this.litecoin;
                 case 'dogecoin': return this.dogecoin;
                 case 'ravencoin': return this.ravencoin;
-                default: return undefined;
+                case 'ethereum': return this.ethereum;
+                case 'binance': return this.binance;
+                default:
+                    log.warn(__name__, `getBlockchain(name=${name}): Unknown name.`)
+                    return undefined;
             }
         }
     }
@@ -37,7 +44,6 @@ export namespace CryptoView {
         private static config = undefined as unknown as Config;
         readonly blockchains = undefined as unknown as BlockchainConfig;
         readonly mongodb = {} as MongoDbConfig;
-        readonly ethereum = {} as EthRpcConfig;
 
         constructor(cfg: any) {
             if ( Object.prototype.hasOwnProperty.call(cfg, "blockchains") && cfg.blockchains ) {
@@ -57,8 +63,14 @@ export namespace CryptoView {
                         case "BTC":
                             this.blockchains.bitcoin = new Bitcoin.RpcClientConfig(blockchainCfg);
                             break;
+                        case "ETH":
+                            this.blockchains.ethereum = new Ethereum.RpcConfig(blockchainCfg);
+                            break;
+                        case "BNB":
+                            this.blockchains.binance = new BinanceSmartChain.Config(blockchainCfg);
+                            break;
                         default:
-                            //log.warn(__name__, `Unknown type "${blockchainCfg.type}" when parsing "${bc}". Skipping...`);
+                            //log.warn(__name__, `Unknown type "${blockchainCfg.type}" when parsing "${bc}" from ${Config.configfile}. Skipping...`);
                             //console.trace(blockchainCfg);
                             break;
                     }
@@ -66,9 +78,6 @@ export namespace CryptoView {
             }
             if (Object.prototype.hasOwnProperty.call(cfg, "mongodb") && cfg.mongodb) {
                 this.mongodb = new MongoDbConfig(cfg.mongodb);
-            }
-            if (Object.prototype.hasOwnProperty.call(cfg, "ethereum") && cfg.ethereum) {
-                this.ethereum = new EthRpcConfig(cfg.ethereum);
             }
         }
 

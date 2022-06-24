@@ -4,31 +4,33 @@ import { getConfig } from 'cryptoview/config';
 import { log } from 'cryptoview/logger';
 const __name__ = 'cryptoview.adapter.eth';
 
-class InfuraStruct {
-    public static MAINNET = 'https://mainnet.infura.io/v3/' as string;
+export namespace Ethereum {
+    class InfuraStruct {
+        public static MAINNET = 'https://mainnet.infura.io/v3/' as string;
 
-    private readonly projectId = '' as string;
-    private readonly secret = '' as string;
-    constructor(projectId: string, secret: string) {
-        this.projectId = projectId;
-        this.secret = secret;
+        private readonly projectId = '' as string;
+        private readonly secret = '' as string;
+        constructor(projectId: string, secret: string) {
+            this.projectId = projectId;
+            this.secret = secret;
+        }
+
+        getServiceUrl(): string {
+            return `${InfuraStruct.MAINNET}${this.projectId}`;
+        }
     }
 
-    getServiceUrl(): string {
-        return `${InfuraStruct.MAINNET}${this.projectId}`;
-    }
-}
+    export class RpcConfig {
+        readonly address = '' as string;
+        readonly infura = {} as InfuraStruct;
+        constructor(cfg: any) {
+            this.address = cfg.address;
+            this.infura = new InfuraStruct(cfg.infura.projectId, cfg.infura.secret);
+        }
 
-export class EthRpcConfig {
-    readonly address = '' as string;
-    readonly infura = {} as InfuraStruct;
-    constructor(cfg: any) {
-        this.address = cfg.address;
-        this.infura = new InfuraStruct(cfg.infura.projectId, cfg.infura.secret);
-    }
-
-    getServiceUrl(): string {
-        return this.infura.getServiceUrl();
+        getServiceUrl(): string {
+            return this.infura.getServiceUrl();
+        }
     }
 }
 
