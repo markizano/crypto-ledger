@@ -13,7 +13,7 @@ getConfig().then( (config) => {
         log.error(`BitcoinAdapter.${METHOD}() is not a function! Abort.`)
         process.exit(8);
     }
-    log.debug(`Calling: Bitcoin.Adapter.${METHOD}(${args.join(", ")});`);
+    log.debug(__name__, `Calling: Bitcoin.Adapter.${METHOD}(${args.join(", ")});`);
     let adapter = new Bitcoin.Adapter(config.blockchains.bitcoin);
     const btcMethod = Bitcoin.Adapter.prototype[METHOD];
     btcMethod.call(adapter, ...args).then( (result) => {
