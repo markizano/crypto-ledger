@@ -43,3 +43,40 @@ Some else further creates an integration into Binance. We are now getting price 
 3 platforms. It would be a nice feature to be able to take the average of all their prices instead
 of being locked into a single entity for pricing data.
 
+
+# bitcoin-cli
+Install [bitcoin-core](https://github.com/bitcoin/bitcoin/releases) to ensure you have the official
+bitcoind and bitcoin-qt installed and able to run.
+
+Here's a little detail on some of the required pieces that are bare dependencies you can find in any
+guide:
+
+- _bind_: This is the address bitcoind will listen/bind for other bitcoind instances to find this one.
+  You can port-forward the Internet to this port to help support the Network as I understand it.
+- _listen_: Set this to "1" to ensure listen mode is active.
+- _server_: Set this to "1" in your wallet (bitcoin-qt) configuration to make it act like a server.
+- _rpcbind_: Bind to this address for JSON-RPC commands. HINT: Install bitcoind on a server and rpcbind
+  to your local network address (e.g. 192.168.1.3:8333).
+- _rpcconnect_: In your client configuration, tell your `bitcoin-cli` where to connect by default without
+  having to specify on each command.
+
+Here's configuration tweaks I did in order to get this working:
+
+### txindex
+By default, `txindex` is set to false, which says don't index the entire blockchain. We do not want this
+in this setup as we are scanning the blockchain for other transactions as well.
+I have bitcoin running as a dedicated user. In `~btc/.bitcoin/bitcoin.conf`, make sure you have
+
+    txindex=1
+
+somewhere in the file to ensure we can find unrelated transactions. This lets `getrawtransaction` get
+a value.
+
+### rpcworkqueue / ulimit
+I had to set `rpcworkqueue=5000` at least since I saw some blocks with >3000 transactions!<br />
+I also had to set `ulimit -n 40960` to ensure bitcoind/bitcoin-qt had access to enough file descriptors
+in `~/.bitcoin/blocks/`.
+
+Setting these limits enabled me to run parallel queries against the bitcoind/bitcoin-qt for transactions
+in large batches without halting the whole scripts.
+(e.g. `await Promise.all(block.tx.forEach())` vs `for await (const block in this.getBlock())`)
