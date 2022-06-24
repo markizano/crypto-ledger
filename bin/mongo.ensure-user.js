@@ -19,8 +19,8 @@ printjson(role);
 
 print('\x1b[34mUser\x1b[0m: ');
 user = admin.createUser({
-    user: 'ledger',
-    pwd: '!_CryptoLedger_!',
+    user: _getENV('MONGO_USER'),
+    pwd: _getENV('MONGO_PASS'),
     roles: [ 'cryptoLedger' ]
 });
 printjson(user);
