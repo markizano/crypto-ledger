@@ -299,12 +299,18 @@ export namespace Bitcoin {
       return this.config.currency;
     }
   
+    async getBestBlockhash(): Promise<string> {
+      log.verbose(this.logPrefix, 'getBestBlockhash()');
+      const blockinfo = await this.client.getBlockchainInfo();
+      return blockinfo.bestblockhash || '';
+    }
+
     /**
      * Get a list of Wallet Objects that contain detailed information about the list of wallets we are monitoring.
      * @returns Promise<Array<WalletAddress>> Get the list of wallets as address objects.
      */
     async getMyWallets(): Promise<WalletAddress[]> {
-      log.verbose(this.logPrefix, 'getMyWallets()')
+      log.verbose(this.logPrefix, 'getMyWallets()');
       const result = [] as WalletAddress[];
       // We want receiving addresses that have at least 1 confirmation, but not empty (e.g. wallets we've only sent tokens to)
       //  or watchOnly wallets since they aren't "my" wallets.
@@ -342,7 +348,7 @@ export namespace Bitcoin {
      * @returns {Promise<Txn[]>} Array of Transactions
      */
      protected async txids2txn(txids: string[]): Promise<Txn[]> {
-      log.info(this.logPrefix, 'Collecting transactions related to the wallet.')
+      log.verbose(this.logPrefix, 'Collecting transactions related to the wallet.')
       const result = [] as Txn[];
       for ( var txid of txids ) {
         log.debug(this.logPrefix, `client.getTransaction(${txid})`)
@@ -361,13 +367,13 @@ export namespace Bitcoin {
      * @returns The block of the hash-id.
      */
     async getBlock(blockhash: string): Promise<Block> {
-      log.info(this.logPrefix, `getBlock(${blockhash})`);
+      log.verbose(this.logPrefix, `getBlock(${blockhash})`);
       const blockResult = await this.client.getBlock(blockhash);
       return new Block(blockResult);
     }
   
     async getTransaction(txid: string): Promise<Txn> {
-      log.info(this.logPrefix, `getTransaction(${txid})`);
+      log.verbose(this.logPrefix, `getTransaction(${txid})`);
       const transaction = await this.client.getTransaction(txid);
       return new Txn(transaction);
     }
@@ -386,7 +392,7 @@ export namespace Bitcoin {
   
   export class Adapter extends BaseAdapter {
   
-    //***** Compound Transactions ahead! *****//
+    //********** Compound Transactions ahead! **********//
     /**
      * Iterate over the transactions in this block and unpack them to find txns that contain
      * this ${address}.
@@ -409,14 +415,15 @@ export namespace Bitcoin {
       return result;
     }
   
+    //********** Streaming Transactions ahead! **********//
     /**
      * I wanted a generator rather than a Promise array to avoid filling up memory with the transaction
      * lists.
      * @param startingblockhash {string} If not the most recent block, start here.
      * @param direction {boolean} True to look forward (nextblockhash). False to look back (previousblockhash).
      */
-    async *iterateBlocks(startingblockhash: string, direction: boolean = false): AsyncGenerator<Block> {
-      if ( startingblockhash == '' ) {
+    async *iterateBlocks(startingblockhash: string = '', direction: boolean = false): AsyncGenerator<Block> {
+      if ( !startingblockhash || startingblockhash == '' ) {
         startingblockhash = (await this.client.getBlockchainInfo()).bestblockhash
       }
       let block = await this.getBlock(startingblockhash) as Block;
@@ -426,6 +433,44 @@ export namespace Bitcoin {
         block = await this.getBlock(nextblock);
       } while( direction? block.hasNextBlock(): block.hasPreviousBlock() )
     }
+
+    /**
+     * Return a list of transaction id's containing the address mentioned.
+     * @param searchAddress {string} The address to search the blockchain.
+     * @param blockhash {string} The block hash ID of the target block we would start searching.
+     * @param blockLimit {string} Stop processing after this many blocks.
+     * @return {string[]} The list of transaction ID's that mention this address.
+     */
+    async *searchForAddress(searchAddress: string, blockhash: string = '', blockLimit: number = Infinity): AsyncGenerator<string> {
+      // For each of the blocks we find on the chain...
+      for await ( const block of this.iterateBlocks(blockhash) ) {
+        log.verbose(this.logPrefix, `Block height: ${block.height}`);
+        if ( blockLimit <= 0 ) {
+          log.info(this.logPrefix, 'Block limit reached! Graceful early exit now that we have what we need.');
+          break;
+        }
+        blockLimit -= 1;
+        // Parallel Loop thru all the transactions.
+        const txids = await Promise.all( block.tx.map( async (txid) => {
+          // Get a real txn from the txid
+          let txn = await this.getDecodedRawTransaction(txid);
+          for ( const vout of txn.vout ) {
+            if ( typeof vout.scriptPubKey.address !== 'undefined' && vout.scriptPubKey.address == searchAddress ) {
+              log.info(this.logPrefix, '!!! \x1b[1;31mFOUND\x1b[0m !!! ' + txid)
+              return txid;
+            }
+          }
+          return '';
+        } ) );
+        for ( const txid of txids ) {
+          if ( txid != '' ) {
+            yield txid;
+          }
+        }
+        log.verbose(this.logPrefix, `Expanded ${block.tx.length} transactions from block.`);
+      }
+      log.info(this.logPrefix, 'Done traversing blockchain!')
+    }
   }
-  
+
 }
