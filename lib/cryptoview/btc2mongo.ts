@@ -1,4 +1,5 @@
 
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { log } from 'cryptoview/logger';
 import { debugFail } from 'cryptoview/utils';
 import { CryptoView, getConfig } from 'cryptoview/config';
@@ -37,6 +38,23 @@ export class BTC2Mongo {
     return toInsertRecords;
   }
 
+  async alertTransaction(btcTxn: any) {
+    const logPrefix = `${__name__}.alertTransaction(${btcTxn.currency})` as string;
+    const message = `Address ${btcTxn.getAddress()} has ${btcTxn.getCategory()} ${btcTxn.amount} of ` +
+      `${btcTxn.currency} on ${(new Date(btcTxn.blocktime * 1000)).toISOString().replace('T', ' ').replace('.000Z', '')}.`;
+    const snsParams = {
+      TopicArn: 'arn:aws:sns:us-east-1:488822841584:Info',
+      Subject: `New Transaction for ${btcTxn.currency}`,
+      Message: message
+    }
+    log.warn(logPrefix, '[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
+    log.info(logPrefix, '  ' + message);
+
+    const snsClient = new SNSClient({ region: 'us-east-1' });
+    const publish = await snsClient.send( new PublishCommand(snsParams) );
+    log.info(logPrefix, `SNS Sent: ${publish.MessageId}`)
+  }
+
   async syncTransactions(btc: Bitcoin.Adapter): Promise<Array<Bitcoin.Txn>> {
     const logPrefix = `${__name__}.syncTransactions(${btc.getCurrency()})` as string;
     log.debug(logPrefix);
@@ -49,8 +67,7 @@ export class BTC2Mongo {
       if ( dbTransactionIds.includes( btcTxn.txid ) ) {
         continue;
       }
-      log.warn(logPrefix, '[ \x1b[1;31mHEY\x1b[0m ]: I would notify via email or SMS now:');
-      log.info(logPrefix, `  Address ${btcTxn.getAddress()} has ${btcTxn.getCategory()} ${btcTxn.amount} of ${btcTxn.currency} on ${btcTxn.blocktime}.`);
+      this.alertTransaction(btcTxn);
       toInsertRecords.push(btcTxn);
     }
     if ( toInsertRecords.length ) {
